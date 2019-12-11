@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import rospy
 from time import sleep
 import cv2
@@ -12,8 +12,11 @@ from cv_bridge import CvBridge, CvBridgeError
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import datasets, layers, models
+import numpy as np
+from PIL import Image as imgPIL
 
-model_dir = '~/tmp/traffic_sign_addedneurons/0.1/'
+model_dir = '/home/perseus/tmp/traffic_sign_addedneurons/0.1'
+bridge = CvBridge()
 
 # Should match image dimensions in CNN initial layer
 IMG_WIDTH = 32
@@ -25,15 +28,19 @@ CLASS_NAMES = ['AddedLane', 'KeepRight', 'leftTurn', 'merge', 'pedestrianCrossin
    
 class TrafficSign:
 	def __init__(self):
-		self.model = tf.keras.models.load_model(model_dir)
-		self.img_sub = rospy.Subscriber("/usb_cam/image_raw", Image, which_sign)
+		self.model = tf.keras.models.load_model(str(model_dir))
+		self.img_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.which_sign)
 		self.sign_pub = rospy.Publisher('/sign', String, queue_size=10)
 		
 	def which_sign(self, data):
 		x = bridge.imgmsg_to_cv2(data, 'rgb8')
-		x = cv2.resize(x, (32, 32))
-		x = x[...,::-1]
-		predictions = loaded.predict(tf.constant(x))
+		x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)
+		x = imgPIL.fromarray(x)
+		x = x.resize((32,32))
+		x = tf.keras.preprocessing.image.img_to_array(x)
+		x = tf.keras.applications.mobilenet.preprocess_input(
+			x[tf.newaxis,...])
+		predictions = self.model.predict(x)
 		predicted_label = np.argmax(predictions[0])
 		predicted_label = CLASS_NAMES[predicted_label]
 		print("Prediction on image:\n", predicted_label)
