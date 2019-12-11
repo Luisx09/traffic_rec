@@ -1,0 +1,6 @@
+#! /usr/bin/env python
+
+import sign_classify.sign_classify
+
+if __name__ == '__main__':
+    sign_classify.sign_classify.main()

@@ -1,0 +1,6 @@
+#! /usr/bin/env python
+
+import sign_detect.sign_detect
+
+if __name__ == '__main__':
+    sign_detect.sign_detect.main()
