@@ -35,7 +35,9 @@ class TrafficSign:
 		x = x[...,::-1]
 		predictions = loaded.predict(tf.constant(x))
 		predicted_label = np.argmax(predictions[0])
-		print("Prediction on image:\n", CLASS_NAMES[predicted_label])
+		predicted_label = CLASS_NAMES[predicted_label]
+		print("Prediction on image:\n", predicted_label)
+		self.sign_pub.publish(predicted_label)
 		
 
 def main() :
