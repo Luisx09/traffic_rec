@@ -10,32 +10,42 @@ from std_msgs.msg import String
 from cv_bridge import CvBridge, CvBridgeError
    
 bridge = CvBridge()
-detection_box = True # Set to true to look for a green box instead of an actual sign
 
 class ShapeDetector:
 	def __init__(self):
 		pass
  
-	def detect(self, c, img):
+	def detect(self, c):
 		# initialize the shape name and approximate the contour
 		shape = "unidentified"
 		peri = cv2.arcLength(c, True)
 		approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-		if detection_box is True:
-			if len(approx) == 4:
+		# if the shape is a triangle, it will have 3 vertices
+		if len(approx) == 3:
+			shape = "triangle"
+ 
+		# if the shape has 4 vertices, it is either a square or
+		# a rectangle
+		elif len(approx) == 4:
 			# compute the bounding box of the contour and use the
 			# bounding box to compute the aspect ratio
-				(x, y, w, h) = cv2.boundingRect(approx)
-				M = cv2.moments(approx)
-				cX = int((M["m10"] / M["m00"]))
-				cY = int((M["m01"] / M["m00"]))
-		else:
-			# Find a valid sign and crop area around it
-			pass
+			(x, y, w, h) = cv2.boundingRect(approx)
+			ar = w / float(h)
  
-		cropped_img = img[y:(y+h), x:(x+w)]
+			# a square will have an aspect ratio that is approximately
+			# equal to one, otherwise, the shape is a rectangle
+			shape = "square" if ar >= 0.95 and ar <= 1.05 else "rectangle"
+ 
+		# if the shape is a pentagon, it will have 5 vertices
+		elif len(approx) == 5:
+			shape = "pentagon"
+ 
+		# otherwise, we assume the shape is a circle
+		else:
+			shape = "circle"
+ 
 		# return the name of the shape
-		return cropped_img, cX, cY
+		return shape
 
 class TrafficFind:
 	def __init__(self):
@@ -56,16 +66,9 @@ class TrafficFind:
 		# Convert input image to HSV
 		hsv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
     
-		if detection_box is True:
-			# Detect a sign within a green bounding box
-			
-			# Threshold the HSV image, keep only the green pixels
-			green_hue_image = cv2.inRange(hsv_image, (color_num - sensitivity, 100, 100), (color_num + sensitivity, 255, 255))
-			thresh = cv2.GaussianBlur(green_hue_image, (9, 9), 2, 2)
-			image[green_hue_image == 255] = 255
-		else:
-			# Try to detect the actual sign with contours
-			pass
+		# Threshold the HSV image, keep only the green pixels
+		green_hue_image = cv2.inRange(hsv_image, (color_num - sensitivity, 100, 100), (color_num + sensitivity, 255, 255))
+		thresh = cv2.GaussianBlur(green_hue_image, (9, 9), 2, 2)
 		
 		# Extract contours
 		cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -82,16 +85,29 @@ class TrafficFind:
 				else:
 					largest_c = c 
 			
-		cropped_image, cX, cY = sd.detect(largest_c, image)
+			if cv2.contourArea(c) >= 2000:
+				# compute the center of the contour, then detect the name of the
+				# shape using only the contour
+				M = cv2.moments(c)
+				cX = int((M["m10"] / M["m00"]))
+				cY = int((M["m01"] / M["m00"]))
+				shape = sd.detect(c)
+				shape_no += 1
+		
+				# multiply the contour (x, y)-coordinates by the resize ratio,
+				# then draw the contours and the name of the shape on the image
+				c = c.astype("float")
+				#c *= ratio
+				c = c.astype("int")
+				print (shape + ' ' + str(shape_no) + ' is ' + str(cv2.contourArea(c)))
+				cv2.drawContours(image, [c], -1, (0, 255, 0), 2)
+				cv2.putText(image, shape + ' ' + str(shape_no), (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 			
-		img_out = bridge.cv2_to_imgmsg(cropped_image, "rgb8")
-		img_out.header.frame_id = 'centroid(' + str(cX) + ','+ str(cY)+ ')'
-		img_out.header.frame_id += ' area(' + str(cv2.contourArea(largest_c))+ ')'
-		self.sign_pub.publish(img_out)
+		self.sign_pub.publish(bridge.cv2_to_imgmsg(image, "rgb8"))
 
 def main() :
 
-	rospy.init_node('sign_detect', anonymous=True)
+	rospy.init_node('img_proc', anonymous=True)
 	traffic_node = TrafficFind()
 
 	# spin() simply keeps python from exiting until this node is stopped
