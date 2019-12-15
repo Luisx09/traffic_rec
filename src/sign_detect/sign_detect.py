@@ -33,10 +33,11 @@ class TrafficFind:
     
 		if self.detection_box is True:
 			# Detect a sign within a green bounding box
-			
 			# Threshold the HSV image, keep only the green pixels
 			green_hue_image = cv2.inRange(hsv_image, (color_num - sensitivity, 100, 100), (color_num + sensitivity, 255, 255))
 			thresh = cv2.GaussianBlur(green_hue_image, (9, 9), 2, 2)
+
+			# Mask detected pixels in image to white pixels to help with classification later
 			image[green_hue_image == 255] = 255
 		else:
 			# Try to detect the actual sign with contours
@@ -46,6 +47,7 @@ class TrafficFind:
 		cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 		cnts = imutils.grab_contours(cnts)
 		
+		# Find and keep largest countour
 		largest_c = None
 		for c in cnts:
 			if cv2.contourArea(c) >= 2000:
@@ -54,17 +56,11 @@ class TrafficFind:
 						largest_c = c
 				else:
 					largest_c = c 
-			
-		if largest_c is not None:
-			cropped_image, cX, cY = self.detect(largest_c, image)
-			img_out = bridge.cv2_to_imgmsg(cropped_image, "rgb8")
-			img_out.header.frame_id = 'centroid(' + str(cX) + ','+ str(cY)+ ')'
-			img_out.header.frame_id += ' area(' + str(cv2.contourArea(largest_c))+ ')'
-			self.sign_pub.publish(img_out)
+
+		self.detect(largest_c, image)
 			
 	def detect(self, c, img):
 		# initialize the shape name and approximate the contour
-		shape = "unidentified"
 		peri = cv2.arcLength(c, True)
 		approx = cv2.approxPolyDP(c, 0.04 * peri, True)
 		if self.detection_box is True:
@@ -75,13 +71,12 @@ class TrafficFind:
 				M = cv2.moments(approx)
 				cX = int((M["m10"] / M["m00"]))
 				cY = int((M["m01"] / M["m00"]))
-		else:
-			# Find a valid sign and crop area around it
-			pass
- 
-		cropped_img = img[y:(y+h), x:(x+w)]
-		# return the name of the shape
-		return cropped_img, cX, cY
+				cropped_image = img[y:(y+h), x:(x+w)]
+				img_out = bridge.cv2_to_imgmsg(cropped_image, "rgb8")
+				img_out.header.frame_id = 'centroid(' + str(cX) + ','+ str(cY)+ ')'
+				img_out.header.frame_id += ' area(' + str(cv2.contourArea(largest_c))+ ')'
+				self.sign_pub.publish(img_out)
+		return
 
 def main() :
 

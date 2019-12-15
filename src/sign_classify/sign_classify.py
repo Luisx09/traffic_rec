@@ -62,9 +62,6 @@ class TrafficSign:
 		predictions = self.model.predict(x)
 		predicted_label = np.argmax(predictions[0])
 		predicted_label = CLASS_NAMES[predicted_label]
-		#print("Prediction on image: " + predicted_label)
-		#print(data.header.frame_id)
-		#self.sign_pub.publish(predicted_label)
 		return predicted_label
 		
 
