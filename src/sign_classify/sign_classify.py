@@ -5,7 +5,7 @@ import cv2
 import cv2 as cv
 import numpy as np
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 
 # TensorFlow and tf.keras
@@ -31,14 +31,25 @@ class TrafficSign:
 	def __init__(self):
 		self.model = tf.keras.models.load_model(str(model_dir))
 		self.img_sub = rospy.Subscriber("/traffic_sign", Image, self.process_sign)
-		self.sign_pub = rospy.Publisher('/sign_type', String, queue_size=10)
+		self.sign_pub = rospy.Publisher('/sign_data', Header, queue_size=10)
 		
 	def process_sign(self, data):
 		# Identify the sign
 		sign_name = self.which_sign(data)
 		print(sign_name)
 		# How far away is it?
-		#area = re.
+		# First, get area of detected sign from image frame ID.
+		info = data.header.frame_id
+		area = re.search('area\((.*)\)', info).group(1)
+		#print (float(area))
+		# Do some math to find distance to sign (in mm).
+		calc_dist = 36251.5 * (float(area) ** -0.56)
+		print (str(calc_dist) + " mm")
+		msg_out = Header()
+		msg_out.frame_id = sign_name
+		msg_out.seq	= calc_dist
+		self.sign_pub.publish(msg_out)
+		
 	
 	def which_sign(self, data):
 		img_in = bridge.imgmsg_to_cv2(data, 'rgb8')
