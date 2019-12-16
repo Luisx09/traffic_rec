@@ -16,16 +16,14 @@ import numpy as np
 import regex as re
 from PIL import Image as imgPIL
 
-model_dir = '/home/perseus/tmp/traffic_sign_addedneurons/0.1'
+model_dir = '/home/perseus/tmp/robotics_traffic/0.1'
 bridge = CvBridge()
 
 # Should match image dimensions in CNN initial layer
 IMG_WIDTH = 32
 IMG_HEIGHT = 32
 
-CLASS_NAMES = ['AddedLane', 'KeepRight', 'leftTurn', 'merge', 'pedestrianCrossing', 'school',
-    'signalAhead', 'speedLimit25', 'speedLimit30', 'speedLimit35', 'speedLimit45',
-    'stopAhead', 'Stopsign', 'Yield']
+CLASS_NAMES = ['speedLimit25', 'speedLimit45', 'stopAhead', 'Stopsign']
    
 class TrafficSign:
 	def __init__(self):

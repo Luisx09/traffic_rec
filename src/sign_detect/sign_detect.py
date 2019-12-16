@@ -74,7 +74,7 @@ class TrafficFind:
 				cropped_image = img[y:(y+h), x:(x+w)]
 				img_out = bridge.cv2_to_imgmsg(cropped_image, "rgb8")
 				img_out.header.frame_id = 'centroid(' + str(cX) + ','+ str(cY)+ ')'
-				img_out.header.frame_id += ' area(' + str(cv2.contourArea(largest_c))+ ')'
+				img_out.header.frame_id += ' area(' + str(cv2.contourArea(c))+ ')'
 				self.sign_pub.publish(img_out)
 		return
 

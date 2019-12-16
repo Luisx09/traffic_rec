@@ -12,14 +12,15 @@ from cv_bridge import CvBridge, CvBridgeError
 # Constants to stand in for MPH limits in signs
 SPD_25MPH = 55
 SPD_45MPH = 75
+NO_SPD_LIM = 85
    
 class Driver:
 	def __init__(self):
-		self.model = tf.keras.models.load_model(model_dir)
-		self.sign_sub = rospy.Subscriber("/sign_data", Header, drive_response)
-		self.drv_pub = rospy.Publisher('/drv_vel', Float64, queue_size=10)\
+		self.sign_sub = rospy.Subscriber("/sign_data", Header, self.drive_response)
+		self.drv_pub = rospy.Publisher('/drv_vel', Float64, queue_size=10)
 		self.prev_delta = None
 		self.stopping = False
+		self.speed_limit = NO_SPD_LIM
 		
 	def drive_response(self, data):
 		traffic_sign = data.frame_id
@@ -35,17 +36,18 @@ class Driver:
 		if traffic_sign is 'Stopsign':
 			# Stop
 			print ("It's time to stop!")
+			self.stopping = True
 			delta_stop = dist - 50
 		elif traffic_sign is 'speedLimit25':
 			# Go slow
 			# Set max speed to a low number
-			speed_limit = SPD_25MPH
+			self.speed_limit = SPD_25MPH
 		elif traffic_sign is 'speedLimit45':
 			# Go a bit faster
 			# Set max speed to a higher number
-			speed_limit = SPD_45MPH
+			self.speed_limit = SPD_45MPH
 		
-		if stopping is True:
+		if self.stopping is True:
 			# Assume no change in distance from last time
 			if delta_stop is None:
 				delta_stop = self.prev_delta
@@ -58,20 +60,11 @@ class Driver:
 
 			drv_out = P + D
 		else:
-			drv_out = speed_limit
+			drv_out = self.speed_limit
 
-		if drv_out > speed_limit:
-			drv_out = speed_limit
+		if drv_out > self.speed_limit:
+			drv_out = self.speed_limit
 		self.drv_pub.publish(drv_out)
-		
-
-
-			
-
-			
-
-			 
-		
 
 def main() :
 
