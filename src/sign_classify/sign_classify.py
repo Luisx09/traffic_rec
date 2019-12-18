@@ -16,7 +16,8 @@ import numpy as np
 import regex as re
 from PIL import Image as imgPIL
 
-model_dir = '/home/perseus/tmp/robotics_traffic/0.1'
+# Address to SavedModel
+model_dir = './tmp/robotics_traffic/0.1'
 bridge = CvBridge()
 
 # Should match image dimensions in CNN initial layer
@@ -27,6 +28,7 @@ CLASS_NAMES = ['speedLimit25', 'speedLimit45', 'stopAhead', 'Stopsign']
    
 class TrafficSign:
 	def __init__(self):
+		# Load message from address in root directory
 		self.model = tf.keras.models.load_model(str(model_dir))
 		self.img_sub = rospy.Subscriber("/traffic_sign", Image, self.process_sign)
 		self.sign_pub = rospy.Publisher('/sign_data', Header, queue_size=10)
@@ -35,22 +37,26 @@ class TrafficSign:
 		# Identify the sign
 		sign_name, certain = self.which_sign(data)
 		print(sign_name, certain)
-		# How far away is it?
-		# First, get area of detected sign from image frame ID.
+
+		# Get area of detected sign from image frame ID.
 		info = data.header.frame_id
 		area = re.search('area\((.*)\)', info).group(1)
-		#print (float(area))
+		
 		# Do some math to find distance to sign (in mm).
 		calc_dist = 43017.35 * (float(area) ** -0.51668)
 		print (area + ' is ' + str(calc_dist) + " mm")
-		msg_out = Header()
-		msg_out.frame_id = sign_name
-		msg_out.seq	= calc_dist
+
+		# Only send message if confident in data.
 		if certain == True:
+			# Assemble message with sign data and publish
+			msg_out = Header()
+			msg_out.frame_id = sign_name
+			msg_out.seq	= calc_dist
 			self.sign_pub.publish(msg_out)
 		
 	
 	def which_sign(self, data):
+		# Convert Image message to CV format, then pre-process with Keras
 		img_in = bridge.imgmsg_to_cv2(data, 'rgb8')
 		x = cv2.cvtColor(img_in, cv2.COLOR_BGR2RGB)
 		x = imgPIL.fromarray(x)
@@ -58,8 +64,12 @@ class TrafficSign:
 		x = tf.keras.preprocessing.image.img_to_array(x)
 		x = tf.keras.applications.mobilenet.preprocess_input(
 			x[tf.newaxis,...])
+		
+		# Run prediction on processed image
 		predictions = self.model.predict(x)
 		predicted_label = np.argmax(predictions[0])
+
+		#Determine confidence in prediction
 		certainty = 100*np.max(predictions[0]) 
 		print (certainty)
 		certain = (certainty > 90.0)

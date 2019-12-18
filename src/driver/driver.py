@@ -23,9 +23,7 @@ class Driver:
 		self.speed_limit = NO_SPD_LIM
 		
 	def drive_response(self, data):
-		traffic_sign = data.frame_id
-		dist = data.seq # Distance in mm
-		delta_stop = None
+		# Look to see if node is active. If not, remain stopped and exit callback immediately
 		active = rospy.get_param('active', True)
 		if active == False:
 			print('Waiting to run...')
@@ -35,9 +33,12 @@ class Driver:
 		Kp = rospy.get_param('~Kp', 0.7)
 		Kd = rospy.get_param('~Kd', 2.0)
 
+		traffic_sign = data.frame_id
+		dist = data.seq # Distance in mm
+		delta_stop = None
+
 		if traffic_sign == 'Stopsign':
 			# Stop
-			
 			self.stopping = True
 			delta_stop = dist - 150
 			print ("It's time to stop! " + str(delta_stop) + " away")
@@ -51,7 +52,7 @@ class Driver:
 			self.speed_limit = SPD_45MPH
 		
 		if self.stopping is True:
-			# Assume no change in distance from last time
+			# Assume no change in distance from last time if no new information given.
 			if delta_stop is None:
 				delta_stop = self.prev_delta
 
@@ -65,8 +66,10 @@ class Driver:
 			drv_out = P + D
 			self.prev_delta = delta_stop
 		else:
+			# Move as fast as legally allowed
 			drv_out = self.speed_limit
 
+		# Apply speed limit to both forward and backwards movement before publishing
 		if drv_out > self.speed_limit:
 			drv_out = self.speed_limit
 		elif drv_out < (-self.speed_limit):
