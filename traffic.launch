@@ -1,0 +1,5 @@
+<launch>
+	<node name="driver" pkg="traffic_rec" type="driver"/>
+	<node name="sign_detect" pkg="traffic_rec" type="sign_detect" />
+	<node name="sign_classify" pkg="traffic_rec" type="sign_classify"/>
+</launch>

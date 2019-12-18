@@ -10,15 +10,15 @@ from std_msgs.msg import Float64
 from cv_bridge import CvBridge, CvBridgeError
 
 # Constants to stand in for MPH limits in signs
-SPD_25MPH = 55
-SPD_45MPH = 75
-NO_SPD_LIM = 85
+SPD_25MPH = 25
+SPD_45MPH = 45
+NO_SPD_LIM = 55
    
 class Driver:
 	def __init__(self):
 		self.sign_sub = rospy.Subscriber("/sign_data", Header, self.drive_response)
 		self.drv_pub = rospy.Publisher('/drv_vel', Float64, queue_size=10)
-		self.prev_delta = None
+		self.prev_delta = 0
 		self.stopping = False
 		self.speed_limit = NO_SPD_LIM
 		
@@ -26,23 +26,26 @@ class Driver:
 		traffic_sign = data.frame_id
 		dist = data.seq # Distance in mm
 		delta_stop = None
-		active = rospy.get_param('~active', True)
-		if active is False:
+		active = rospy.get_param('active', True)
+		if active == False:
+			print('Waiting to run...')
+			self.stopping = False
 			self.drv_pub.publish(0.0)
 			return
-		Kp = rospy.get_param('~Kd', 1.0)
-		Kd = rospy.get_param('~Kd', 1.0)
+		Kp = rospy.get_param('~Kp', 0.7)
+		Kd = rospy.get_param('~Kd', 2.0)
 
-		if traffic_sign is 'Stopsign':
+		if traffic_sign == 'Stopsign':
 			# Stop
-			print ("It's time to stop!")
+			
 			self.stopping = True
-			delta_stop = dist - 50
-		elif traffic_sign is 'speedLimit25':
+			delta_stop = dist - 150
+			print ("It's time to stop! " + str(delta_stop) + " away")
+		elif traffic_sign == 'speedLimit25':
 			# Go slow
 			# Set max speed to a low number
 			self.speed_limit = SPD_25MPH
-		elif traffic_sign is 'speedLimit45':
+		elif traffic_sign == 'speedLimit45':
 			# Go a bit faster
 			# Set max speed to a higher number
 			self.speed_limit = SPD_45MPH
@@ -56,14 +59,18 @@ class Driver:
 			P = delta_stop * Kp
 
 			# Get D component
-			D = (delta_stop - prev_delta) * Kd
+			D = (delta_stop - self.prev_delta) * Kd
 
+			print (P, D)
 			drv_out = P + D
+			self.prev_delta = delta_stop
 		else:
 			drv_out = self.speed_limit
 
 		if drv_out > self.speed_limit:
 			drv_out = self.speed_limit
+		elif drv_out < (-self.speed_limit):
+			drv_out = -self.speed_limit
 		self.drv_pub.publish(drv_out)
 
 def main() :

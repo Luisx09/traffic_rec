@@ -15,6 +15,7 @@ class TrafficFind:
 	def __init__(self):
 		self.img_sub = rospy.Subscriber("/usb_cam/image_raw", Image, self.find_sign)
 		self.sign_pub = rospy.Publisher('/traffic_sign', Image, queue_size=10)
+		self.debug_pub = rospy.Publisher('/debug_img', Image, queue_size=10)
 		
 	def find_sign(self, data):
 		# Do CV wizardry to find the traffic sign in a brightly colored square and send segment of image
@@ -36,7 +37,7 @@ class TrafficFind:
 			# Threshold the HSV image, keep only the green pixels
 			green_hue_image = cv2.inRange(hsv_image, (color_num - sensitivity, 100, 100), (color_num + sensitivity, 255, 255))
 			thresh = cv2.GaussianBlur(green_hue_image, (9, 9), 2, 2)
-
+			self.debug_pub.publish(bridge.cv2_to_imgmsg(thresh))
 			# Mask detected pixels in image to white pixels to help with classification later
 			image[green_hue_image == 255] = 255
 		else:
@@ -51,13 +52,7 @@ class TrafficFind:
 		largest_c = None
 		for c in cnts:
 			if cv2.contourArea(c) >= 2000:
-				if largest_c is not None:
-					if cv2.contourArea(c) > cv2.contourArea(largest_c):
-						largest_c = c
-				else:
-					largest_c = c 
-
-		self.detect(largest_c, image)
+				self.detect(c, image)
 			
 	def detect(self, c, img):
 		# initialize the shape name and approximate the contour
@@ -76,7 +71,11 @@ class TrafficFind:
 				img_out.header.frame_id = 'centroid(' + str(cX) + ','+ str(cY)+ ')'
 				img_out.header.frame_id += ' area(' + str(cv2.contourArea(c))+ ')'
 				self.sign_pub.publish(img_out)
-		return
+				return True
+			else:
+				return False
+		else:
+			return False
 
 def main() :
 

@@ -33,20 +33,21 @@ class TrafficSign:
 		
 	def process_sign(self, data):
 		# Identify the sign
-		sign_name = self.which_sign(data)
-		print(sign_name)
+		sign_name, certain = self.which_sign(data)
+		print(sign_name, certain)
 		# How far away is it?
 		# First, get area of detected sign from image frame ID.
 		info = data.header.frame_id
 		area = re.search('area\((.*)\)', info).group(1)
 		#print (float(area))
 		# Do some math to find distance to sign (in mm).
-		calc_dist = 36251.5 * (float(area) ** -0.56)
-		print (str(calc_dist) + " mm")
+		calc_dist = 43017.35 * (float(area) ** -0.51668)
+		print (area + ' is ' + str(calc_dist) + " mm")
 		msg_out = Header()
 		msg_out.frame_id = sign_name
 		msg_out.seq	= calc_dist
-		self.sign_pub.publish(msg_out)
+		if certain == True:
+			self.sign_pub.publish(msg_out)
 		
 	
 	def which_sign(self, data):
@@ -59,8 +60,11 @@ class TrafficSign:
 			x[tf.newaxis,...])
 		predictions = self.model.predict(x)
 		predicted_label = np.argmax(predictions[0])
+		certainty = 100*np.max(predictions[0]) 
+		print (certainty)
+		certain = (certainty > 90.0)
 		predicted_label = CLASS_NAMES[predicted_label]
-		return predicted_label
+		return predicted_label, certain
 		
 
 def main() :
